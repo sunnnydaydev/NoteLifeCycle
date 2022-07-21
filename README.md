@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
 - 无法保证组件会在 Activity 或 Fragment 停止之前启动。正常来说activityA跳转ActivityB时生命周期为：activityB onStart 然后activityA onStop。假如activityB onStart有耗时操作时，可能会出现activityA onStop先结束情况。
 - 在一个Activity中去感知它的生命周期非常简单，而如果要在一个非Activity的类中去感知Activity的生命周期，应该怎么办呢？我们就要像上面那样在Activity中做些逻辑处理。
 
-lifeCycle优势： lifeCycle就是解决上述问题的。它可以让任何一个类都能轻松感知到Activity/Fragment的生命周期，同时又不需要在Activity/Fragment中编写大量的逻辑处理。
+lifeCycle优势： lifeCycle就是解决上述问题的。它可以让任何一个类都能轻松感知到Activity的生命周期，同时又不需要在Activity中编写大量的逻辑处理。
 
 ###### 2、依赖的引入
 
@@ -98,11 +98,81 @@ lifeCycle优势： lifeCycle就是解决上述问题的。它可以让任何一�
         implementation("androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycle_version")
     }
 ```
-###### 3、简单实用#在一个类中监听Activity的生命周期
+###### 3、简单使用#使用lifecycle解耦系统组件与普通组件
+
+上面通过伪代码举了一个Location的栗子，接下来使用lifecycle改写下：
 
 （1）定义
 
-定义实现类，实现LifecycleObserver接口即可，这样我们自定义的实现类就能感知Activity生命周期了。
+定义实现类，实现LifecycleObserver接口，这样我们自定义的实现类就能感知Activity生命周期了。
+
+```kotlin
+/**
+ * Create by SunnyDay /07/21 21:01:08
+ */
+class MyLocationListenerWithLifecycle(
+    private val context: Context,
+    private val callback:(Location)->Unit
+):LifecycleObserver {
+    companion object{
+      const val tag = "Lifecycle"
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    fun start() {
+        Log.d(tag,"onStart")
+        // connect to system location service
+        // get current Location
+        // feedback
+        callback.invoke(Location(50F,50F))
+    }
+    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+    fun stop() {
+        Log.d(tag,"onStop")
+        // disconnect from system location service
+    }
+
+    data class Location(val x:Float,val y:Float)
+}
+```
+
+（2）使用
+
+向Activity注册下监听即可
+
+```kotlin
+class SecActivity : AppCompatActivity() {
+    
+    private  val mLocationListenerWithLifecycle: MyLocationListenerWithLifecycle by lazy {
+        MyLocationListenerWithLifecycle(this){
+            // todo update ui
+           it.x
+           it.y
+        }
+    }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_sec)
+        lifecycle.addObserver(mLocationListenerWithLifecycle)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        lifecycle.removeObserver(mLocationListenerWithLifecycle)
+    }
+}
+
+```
+随着Activity生命周期的切换，这会打印出不同的log，可见相对之前来说简洁了些，不用在activity中不同生命周期里面去注册了。使用lifeCycle直接解耦了组件。
+也即解耦了普通组件MyLocationListenerWithLifecycle与activity这个系统组件。
+
+ (3) 小结
+
+lifeCycle的使用也十分简单，一般分为三步：首先定义类实现LifecycleObserver，然后使用@OnLifecycleEvent注解给普通组件的方法绑定
+到系统组件的对应生命周期上即可。最后为系统组件（lifeCycleOwner）注册普通组件（Observer）即可。
+
+
+OnLifecycleEvent注解参数字段有很多，一般都对应这系统组件的生命周期的：
 
 ```kotlin
 /**
@@ -141,10 +211,6 @@ class MyObserver : LifecycleObserver {
 }
 ```
 
-（2）使用
-
-向Activity注册下监听即可
-
 ```kotlin
 class SecActivity : AppCompatActivity() {
     private  val myObserver: MyObserver by lazy {
@@ -162,13 +228,14 @@ class SecActivity : AppCompatActivity() {
     }
 }
 ```
-随着Activity生命周期的切换，这会打印出不同的log，可见相对之前来说简洁了些，不用在activity中不同生命周期里面去注册了。
 
-###### 4、
 
-liveData
-viewModel
-3、lifeCycle
-4、生命周期感知组件综合总结
+###### 4、使用lifeCycleService解耦Service与组件
+
+上面了解到可以使用lifeCycle解耦Activity与普通组件，这里我们可以使用lifeCycleService解耦Service与普通组件。
+
+###### 5、使用
+
+ProcessLifeCycleOwner监听应用程序生命周期
 
 [官方文档](https://developer.android.google.cn/topic/libraries/architecture/lifecycle)

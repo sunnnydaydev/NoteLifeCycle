@@ -234,6 +234,91 @@ class SecActivity : AppCompatActivity() {
 
 上面了解到可以使用lifeCycle解耦Activity与普通组件，这里我们可以使用lifeCycleService解耦Service与普通组件。
 
+其实使用和Activity差不多，activity默认是LifecycleOwner，而Service不是所以Service要添加依赖。
+
+```groovy
+    def lifecycle_version = "2.6.0-alpha01"
+    implementation("androidx.lifecycle:lifecycle-service:$lifecycle_version")
+```
+
+其他的使用流程就和activity差不多了
+
+```kotlin
+/***
+ * Activity的父类ComponentActivity实现了LifecycleOwner接口，service默认没实现，所以我们应该添加依赖库继承LifecycleService
+ */
+class LocationService  : LifecycleService() {
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.d("LocationService","onCreate")
+        lifecycle.addObserver(MyLocationListenerWithLifecycle(this){
+            it.x
+            it.y
+        })
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d("LocationService","onDestroy")
+    }
+}
+```
+
+观察者直接复用之前写过的吧~
+
+```kotlin
+class MyLocationListenerWithLifecycle(
+    private val context: Context,
+    private val callback:(Location)->Unit
+):LifecycleObserver {
+    companion object{
+      const val tag = "Lifecycle"
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    fun start() {
+        Log.d(tag,"onStart")
+        // connect to system location service
+        // get current Location
+        // feedback
+        callback.invoke(Location(50F,50F))
+    }
+    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+    fun stop() {
+        Log.d(tag,"onStop")
+        // disconnect from system location service
+    }
+
+    data class Location(val x:Float,val y:Float)
+}
+```
+
+剩下的就是service的开启关闭了，简单模拟下~
+
+```kotlin
+class ServiceActivity : AppCompatActivity() {
+   private val mIntent by lazy {
+       Intent(this,LocationService::class.java)
+   }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_service)
+        startService(mIntent)
+    }
+
+    override fun onBackPressed() {
+        super.onBackPressed()
+        finish()
+    }
+    override fun onDestroy() {
+        super.onDestroy()
+        stopService(mIntent)
+    }
+}
+```
+
 ###### 5、使用
 
 ProcessLifeCycleOwner监听应用程序生命周期

@@ -321,6 +321,81 @@ class ServiceActivity : AppCompatActivity() {
 
 ###### 5、使用
 
-ProcessLifeCycleOwner监听应用程序生命周期
+ProcessLifecycleOwner 监听应用程序生命周期,其实用法和Activity，Service的使用差不多。只是ProcessLifeCycleOwner监听的
+是整个app的生命周期，与Activity数量无关。再者就是ProcessLifeCycleOwner#Lifecycle.Event.ON_DESTROY永远不会调用，ProcessLifeCycleOwner#Lifecycle.Event.ON_CREATE
+只会调用一次。
+
+```groovy
+    def lifecycle_version = "2.6.0-alpha01"
+    implementation("androidx.lifecycle:lifecycle-process:$lifecycle_version")
+```
+
+```kotlin
+/**
+ * Create by SunnyDay /07/20 22:08:38
+ */
+class AppObserver : LifecycleObserver {
+    companion object {
+        const val TAG = "AppObserver"
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    fun activityCreate() {
+        Log.i(TAG, "onCreate")
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_START)
+    fun activityStart() {
+        Log.i(TAG, "onStart")
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_RESUME)
+    fun activityResume() {
+        Log.i(TAG, "onResume")
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+    fun activityStop() {
+        Log.i(TAG, "onStop")
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    fun activityDestroy() {
+        Log.i(TAG, "onDestroy")
+    }
+
+}
+```
+
+```kotlin
+/**
+ * Create by SunnyDay /08/11 21:06:31
+ */
+class MyApplication:Application() {
+    override fun onCreate() {
+        super.onCreate()
+        ProcessLifecycleOwner.get().lifecycle.addObserver(AppObserver())
+    }
+}
+```
+
+app就一个activity进行的测试，开启app
+```kotlin
+2022-08-11 21:19:03.662 2743-2743/com.example.notelifecycle I/AppObserver: onCreate
+2022-08-11 21:19:03.750 2743-2743/com.example.notelifecycle I/AppObserver: onStart
+2022-08-11 21:19:03.754 2743-2743/com.example.notelifecycle I/AppObserver: onResume
+```
+
+关闭app
+
+```kotlin
+2022-08-11 21:20:32.547 2743-2743/com.example.notelifecycle I/AppObserver: onStop
+```
+
+再次打开（app进程还未死亡）
+```kotlin
+2022-08-11 21:21:05.771 2743-2743/com.example.notelifecycle I/AppObserver: onStart
+2022-08-11 21:21:05.774 2743-2743/com.example.notelifecycle I/AppObserver: onResume
+```
 
 [官方文档](https://developer.android.google.cn/topic/libraries/architecture/lifecycle)
